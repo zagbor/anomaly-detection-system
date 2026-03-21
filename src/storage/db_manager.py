@@ -126,9 +126,10 @@ class DatabaseManager:
             
             # Инициализация настроек по умолчанию
             defaults = {
-                'training_period_minutes': '60',
+                'training_period_minutes': '5',
                 'system_mode': 'collect',  # 'collect' или 'detect'
-                'collection_start_time': datetime.now().isoformat()
+                'collection_start_time': None,
+                'traffic_capture_enabled': 'true'
             }
             for key, val in defaults.items():
                 cursor.execute('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', (key, val))

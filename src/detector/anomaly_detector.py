@@ -35,7 +35,7 @@ for handler in logging.root.handlers[:]:
     logging.root.removeHandler(handler)
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.FileHandler(os.path.join(log_dir, 'system.log'), encoding='utf-8'),
@@ -43,8 +43,8 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
-# Устанавливаем уровень INFO для всех логгеров
-logging.getLogger().setLevel(logging.INFO)
+# Устанавливаем уровень DEBUG для всех логгеров
+logging.getLogger().setLevel(logging.DEBUG)
 
 
 class SparkplugManualDecoder:
@@ -210,9 +210,24 @@ class AnomalyDetectionSystem:
         }
     
     def _process_message(self, msg):
-        """
-        Колбэк для обработки входящих MQTT сообщений
-        """
+        """Обработка входящих сообщений MQTT"""
+        # Трассировка каждого пакета (для отладки доставки)
+        logger.debug(f"MQTT RECEIVE: topic={msg.topic}, payload_len={len(msg.payload)}")
+
+        # Проверяем, включен ли захват трафика
+        # Примечание: Мы разрешаем трафик от генератора (заглушка) даже если захват выключен, 
+        # чтобы пользователь всегда видел результаты своих действий в инжекторе.
+        is_generator = any(sub in msg.topic for sub in ["zagbor_group", "test_group", "zagbor_node", "test_node"])
+        
+        capture_enabled = self.db.get_setting('traffic_capture_enabled', 'true').lower() == 'true'
+        if not capture_enabled and not is_generator:
+            if self.messages_processed % 50 == 0:
+                logger.warning("СЕТЕВОЙ ТРАФИК ИГНОРИРУЕТСЯ: захват трафика выключен в настройках!")
+            return
+        
+        if not capture_enabled and is_generator:
+            logger.info("ВНИМАНИЕ: Захват выключен, но трафик ИНЖЕКТОРА разрешен для теста.")
+
         try:
             self.messages_processed += 1
             self._load_settings()
@@ -297,11 +312,15 @@ class AnomalyDetectionSystem:
                         except:
                             pass
 
-            # Логируем и обрабатываем все найденные метрики
-            for m in metrics_to_process:
-                tag_name = m["name"]
-                value = m["value"]
-
+            # Обработка извлеченных метрик
+            for metric in metrics_to_process:
+                tag_name = metric["name"]
+                value = metric["value"]
+                
+                # Подробный лог сообщения (как реальный трафик)
+                source_info = "[GENERATOR]" if group_id == 'test_group' else "[NETWORK]"
+                logger.info(f"{source_info} Captured: device={device_id}, tag={tag_name}, value={value:.4f}")
+                
                 # Логируем трафик
                 self.db.log_traffic(
                     topic=msg.topic,
@@ -486,11 +505,22 @@ class AnomalyDetectionSystem:
         
         # Сбор данных для обучения
         import time
+        last_warn = 0
         while self.messages_processed < training_samples:
             time.sleep(1)
+            self._load_settings()
             
+            # Проверка, включен ли захват
+            capture_enabled = self.db.get_setting('traffic_capture_enabled', 'true').lower() == 'true'
+            if not capture_enabled:
+                now = time.time()
+                if now - last_warn > 10:
+                    logger.warning("Сбор образцов приостановлен: захват трафика выключен в настройках.")
+                    last_warn = now
+                continue
+                
             # Логирование прогресса каждые 100 сообщений
-            if self.messages_processed % 100 == 0:
+            if self.messages_processed > 0 and self.messages_processed % 100 == 0:
                 logger.info(f"Собрано {self.messages_processed}/{training_samples} образцов")
         
         logger.info(f"Собрано {self.messages_processed} образцов")
@@ -579,9 +609,9 @@ def main():
 
     # Создание системы
     system = AnomalyDetectionSystem(
-        broker_host="broker.hivemq.com",
+        broker_host="127.0.0.1",
         broker_port=1883,
-        topic_pattern="spBv1.0/#",
+        topic_pattern="#",
         db_path=db_path,
         model_path=model_path,
         window_size_seconds=60,

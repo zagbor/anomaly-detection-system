@@ -24,7 +24,7 @@ class TrafficCapture:
         self,
         broker_host: str = "127.0.0.1",
         broker_port: int = 1883,
-        topic_pattern: str = "spBv1.0/#",
+        topic_pattern: str = "#",
         client_id: Optional[str] = None,
         use_websocket: bool = False
     ):

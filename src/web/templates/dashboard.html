@@ -355,10 +355,8 @@
                 // Обновление настроек
                 if (data.settings) {
                     const mode = data.settings.system_mode;
-                    const period = data.settings.training_period_minutes;
-                    
                     document.getElementById('setting-mode').value = mode;
-                    document.getElementById('setting-period').value = period;
+                    document.getElementById('setting-period').value = data.settings.training_period_minutes;
                     
                     const badge = document.getElementById('mode-badge');
                     badge.textContent = mode === 'collect' ? 'СБОР ЭТАЛОНА' : 'МОНИТОРИНГ';
