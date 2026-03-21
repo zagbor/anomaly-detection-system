@@ -6,8 +6,10 @@
 import sys
 import os
 import logging
+import time
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List, Dict
+import numpy as np
 
 # Добавляем родительскую директорию в путь для импортов
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -16,17 +18,109 @@ from capture.mqtt_client import TrafficCapture
 from features.extractor import FeatureExtractor
 from ml.model import AnomalyDetector
 from storage.db_manager import DatabaseManager, AnomalyRecord
+import os
+import sys
+import json
+import struct
+import re
 
 # Настройка логирования
+base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+log_dir = os.path.join(base_dir, 'logs')
+if not os.path.exists(log_dir):
+    os.makedirs(log_dir, exist_ok=True)
+
+# Очищаем существующие обработчики
+for handler in logging.root.handlers[:]:
+    logging.root.removeHandler(handler)
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('logs/system.log'),
+        logging.FileHandler(os.path.join(log_dir, 'system.log'), encoding='utf-8'),
         logging.StreamHandler()
     ]
 )
 logger = logging.getLogger(__name__)
+# Устанавливаем уровень INFO для всех логгеров
+logging.getLogger().setLevel(logging.INFO)
+
+
+class SparkplugManualDecoder:
+    """
+    Легковесный парсер Sparkplug B для извлечения метрик без зависимости от Protobuf.
+    Используется как fallback, если официальный декодер не сработал.
+    """
+    @staticmethod
+    def decode_metrics(payload: bytes) -> List[Dict]:
+        metrics = []
+        try:
+            # Ищем паттерны названий тегов
+            tag_regex = r'[a-zA-Z0-9_\-\/]{3,50}'
+            
+            for match in re.finditer(tag_regex.encode(), payload):
+                tag_name = match.group().decode()
+                
+                # Если это похоже на промышленный тег
+                if '/' in tag_name or any(x in tag_name.lower() for x in ['temp', 'press', 'vib', 'flow', 'power', 'hum', 'stat']):
+                    start_pos = match.end()
+                    # Ищем данные в окне после названия тега
+                    search_range = payload[start_pos:start_pos+40]
+                    
+                    found_val = None
+                    
+                    # 1. Поиск по маркерам типов Sparkplug B
+                    # Datatype обычно идет после timestamp (tag 3, 18 xx...)
+                    datatype_match = re.search(b'\x20([\x00-\x15])', search_range)
+                    if datatype_match:
+                        dtype = datatype_match.group(1)[0]
+                        dtype_pos = datatype_match.start()
+                        
+                        # Таблица типов Sparkplug B: 9=Float, 10=Double, 3=Int32
+                        if dtype == 9: # Float
+                            # Ищем маркер 0x55 (Tag 10) или 0x65 (Tag 12)
+                            for marker in [b'\x65', b'\x55']:
+                                val_pos = search_range.find(marker, dtype_pos)
+                                if val_pos != -1 and val_pos < len(search_range) - 4:
+                                    # Пробуем и Little Endian (стандарт), и Big Endian (встречается в диких условиях)
+                                    bytes_val = search_range[val_pos+1:val_pos+5]
+                                    v_le = struct.unpack('<f', bytes_val)[0]
+                                    v_be = struct.unpack('>f', bytes_val)[0]
+                                    
+                                    # Выбираем "разумное" значение
+                                    if 0.1 < abs(v_be) < 5000: found_val = float(v_be)
+                                    elif 0.1 < abs(v_le) < 5000: found_val = float(v_le)
+                                    break
+                                    
+                        elif dtype == 10: # Double
+                            val_pos = search_range.find(b'\x59', dtype_pos) # Tag 11
+                            if val_pos != -1 and val_pos < len(search_range) - 8:
+                                bytes_val = search_range[val_pos+1:val_pos+9]
+                                v_le = struct.unpack('<d', bytes_val)[0]
+                                v_be = struct.unpack('>d', bytes_val)[0]
+                                if 0.1 < abs(v_be) < 5000: found_val = float(v_be)
+                                elif 0.1 < abs(v_le) < 5000: found_val = float(v_le)
+
+                    # 2. Если по структуре не вышло, ищем любое float/int в диапазоне
+                    if found_val is None:
+                        for i in range(len(search_range) - 4):
+                            try:
+                                v_be = struct.unpack('>f', search_range[i:i+4])[0]
+                                if 0.1 < abs(v_be) < 5000:
+                                    found_val = float(v_be)
+                                    break
+                            except: continue
+
+                    if found_val is not None and not np.isinf(found_val) and not np.isnan(found_val):
+                        # Избегаем дубликатов тегов в одном сообщении
+                        if not any(m['name'] == tag_name for m in metrics):
+                            metrics.append({"name": tag_name, "value": found_val})
+            
+            return metrics
+        except Exception as e:
+            logger.debug(f"Ошибка ручного декодирования: {e}")
+            return []
 
 
 class AnomalyDetectionSystem:
@@ -69,13 +163,21 @@ class AnomalyDetectionSystem:
         self.messages_processed = 0
         self.start_time = None
         
+        # Настройки системы (инициализация)
+        self.system_mode = 'collect'
+        self.training_period_minutes = 60
+        self.collection_start_time = datetime.now()
+        self.last_settings_load = 0
+        
         logger.info("Система обнаружения аномалий инициализирована")
     
     def _parse_sparkplug_topic(self, topic: str) -> Optional[dict]:
         """
         Парсинг топика Sparkplug B
         
-        Формат: spBv1.0/Group_ID/Message_Type/Edge_Node_ID/Device_ID
+        Форматы: 
+        spBv1.0/Group_ID/Message_Type/Edge_Node_ID/Device_ID
+        spBv1.0/Group_ID/Message_Type/Device_ID
         
         Args:
             topic: Топик MQTT
@@ -85,8 +187,19 @@ class AnomalyDetectionSystem:
         """
         parts = topic.split('/')
         
-        if len(parts) < 5 or parts[0] != "spBv1.0":
+        if len(parts) < 4 or parts[0] != "spBv1.0":
             return None
+        
+        # Стандарт: spBv1.0/group_id/message_type/edge_node_id/[device_id]
+        # Упрощенно: если 4 части, считаем последнюю за device_id
+        if len(parts) == 4:
+            return {
+                "version": parts[0],
+                "group_id": parts[1],
+                "message_type": parts[2],
+                "node_id": "default_node",
+                "device_id": parts[3]
+            }
         
         return {
             "version": parts[0],
@@ -98,41 +211,116 @@ class AnomalyDetectionSystem:
     
     def _process_message(self, msg):
         """
-        Обработка входящего MQTT-сообщения
-        
-        Args:
-            msg: Объект mqtt.MQTTMessage
+        Колбэк для обработки входящих MQTT сообщений
         """
         try:
             self.messages_processed += 1
+            self._load_settings()
             
-            # Парсинг топика
-            topic_info = self._parse_sparkplug_topic(msg.topic)
-            
-            if topic_info is None:
+            # Разбор топика: spBv1.0/group_id/message_type/node_id/[device_id]
+            parts = msg.topic.split('/')
+            if len(parts) < 3:
                 return
+
+            group_id = parts[1]
             
-            device_id = topic_info["device_id"]
-            message_type = topic_info["message_type"]
+            # Ищем тип сообщения из стандартных Sparkplug B
+            spb_types = ["NBIRTH", "NDEATH", "DBIRTH", "DDEATH", "NDATA", "DDATA", "NCMD", "DCMD"]
+            message_type = "UNKNOWN"
+            for p in parts:
+                if p in spb_types:
+                    message_type = p
+                    break
             
-            # Регистрация устройства в БД
-            if device_id:
-                self.db.register_device(
-                    device_id=device_id,
-                    node_id=topic_info["node_id"],
-                    group_id=topic_info["group_id"]
-                )
+            if message_type == "UNKNOWN":
+                message_type = parts[2] if len(parts) > 2 else "UNKNOWN"
+
+            # Определяем node_id и device_id
+            if len(parts) >= 5:
+                node_id = parts[3]
+                device_id = parts[4]
+            elif len(parts) == 4:
+                node_id = parts[3]
+                device_id = f"{node_id}_node"
+            else:
+                node_id = "default_node"
+                device_id = parts[-1] if len(parts) > 1 else "unknown"
+
+            # Регистрация устройства
+            self.db.register_device(device_id, node_id, group_id)
+
+            # Пытаемся декодировать тело сообщения
+            metrics_to_process = []
             
-            # Обработка только сообщений с данными (DDATA)
-            if message_type != "DDATA":
-                return
-            
-            # TODO: Парсинг payload Sparkplug B (Protobuf)
-            # Для простоты сейчас предполагаем, что payload содержит значение
+            # 1. Сначала пробуем как бинарный Sparkplug B (Protobuf)
             try:
-                value = float(msg.payload.decode('utf-8'))
-                tag_name = "unknown"  # TODO: Извлечь из Protobuf
+                # Динамически импортируем, чтобы не падать при старте если файл битый
+                from .sparkplug_b_pb2 import Payload as SparkplugPayload
+                inbound_payload = SparkplugPayload()
+                inbound_payload.ParseFromString(msg.payload)
+                for metric in inbound_payload.metrics:
+                    val = None
+                    if metric.HasField('int_value'): val = float(metric.int_value)
+                    elif metric.HasField('long_value'): val = float(metric.long_value)
+                    elif metric.HasField('float_value'): val = float(metric.float_value)
+                    elif metric.HasField('double_value'): val = float(metric.double_value)
+                    elif metric.HasField('boolean_value'): val = float(1.0 if metric.boolean_value else 0.0)
+                    elif metric.HasField('string_value'):
+                        try: val = float(metric.string_value)
+                        except: pass
+                    
+                    if val is not None:
+                        metrics_to_process.append({
+                            "name": metric.name if metric.name else f"alias_{metric.alias}",
+                            "value": val
+                        })
+            except Exception as e:
+                # 2. Если Protobuf не сработал, используем ручной Fallback-декодер
+                logger.debug(f"Protobuf decoder failed, using fallback: {e}")
+                metrics_to_process = SparkplugManualDecoder.decode_metrics(msg.payload)
                 
+                # 3. Если и это не сработало, пробуем как JSON
+                if not metrics_to_process:
+                    try:
+                        payload_str = msg.payload.decode('utf-8', errors='ignore')
+                        data = json.loads(payload_str)
+                        if isinstance(data, dict) and "metric" in data:
+                            metric = data["metric"][0]
+                            value = float(metric["value"])
+                            tag_name = metric["name"]
+                            metrics_to_process.append({"name": tag_name, "value": value})
+                    except:
+                        # Пробуем прямое число
+                        try:
+                            val = float(msg.payload.decode('utf-8', errors='ignore'))
+                            metrics_to_process.append({"name": "unknown", "value": val})
+                        except:
+                            pass
+
+            # Логируем и обрабатываем все найденные метрики
+            for m in metrics_to_process:
+                tag_name = m["name"]
+                value = m["value"]
+
+                # Логируем трафик
+                self.db.log_traffic(
+                    topic=msg.topic,
+                    device_id=device_id,
+                    tag_name=tag_name,
+                    value=value,
+                    payload=str(msg.payload)[:200]
+                )
+                
+                if self.messages_processed % 10 == 0:
+                    logger.info(f"Сохранено в БД: {device_id}/{tag_name}={value}")
+
+                # Регистрация тега (делаем для всех типов сообщений, включая BIRTH)
+                self.db.register_tag(device_id, tag_name, value)
+
+                # Обработка в экстракторе и аномалии только для DDATA (данные)
+                if message_type != "DDATA":
+                    continue
+
                 # Добавление сообщения в экстрактор
                 self.extractor.add_message(
                     device_id=device_id,
@@ -142,13 +330,33 @@ class AnomalyDetectionSystem:
                     message_type=message_type
                 )
                 
-                # Проверка на аномалию каждые 10 сообщений
-                if self.messages_processed % 10 == 0 and device_id:
-                    self._check_for_anomalies(device_id)
-                
-            except (ValueError, UnicodeDecodeError):
-                # Payload не является числом или не декодируется
-                pass
+            # Проверка на аномалию каждые 10 сообщений (только для DDATA)
+            if self.messages_processed % 10 == 0 and device_id and message_type == "DDATA":
+                # 1. Проверяем режим системы
+                if self.system_mode == 'collect':
+                    return
+
+                # 2. Проверяем достаточно ли данных для этого устройства
+                try:
+                    cursor = self.db.conn.cursor()
+                    cursor.execute('SELECT first_seen FROM devices WHERE device_id = ?', (device_id,))
+                    row = cursor.fetchone()
+                    if row:
+                        first_seen = row[0]
+                        if isinstance(first_seen, str):
+                            first_seen = datetime.fromisoformat(first_seen)
+                        
+                        observation_time = (datetime.now() - first_seen).total_seconds() / 60
+                        if observation_time < self.training_period_minutes:
+                            if self.messages_processed % 100 == 0:
+                                logger.info(f"Устройство {device_id} в режиме обучения: {observation_time:.1f}/{self.training_period_minutes} мин")
+                            return
+                except Exception as e:
+                    logger.error(f"Ошибка проверки периода обучения: {e}")
+                    return
+
+                # 3. Запускаем обнаружение
+                self._check_for_anomalies(device_id)
             
         except Exception as e:
             logger.error(f"Ошибка обработки сообщения: {e}")
@@ -217,6 +425,52 @@ class AnomalyDetectionSystem:
             training_samples: Количество образцов для обучения модели
         """
         logger.info("Запуск системы обнаружения аномалий...")
+        self.last_stats_log = time.time()
+        
+        # Настройки системы
+        self.system_mode = 'collect'
+        self.training_period_minutes = 60
+        self.collection_start_time = datetime.now()
+        self.last_settings_load = 0
+        self._load_settings()
+
+        return self.run(training_samples)
+
+    def _load_settings(self):
+        """Загрузка настроек из БД"""
+        now_ts = time.time()
+        if now_ts - self.last_settings_load > 30: # Теперь чаще - раз в 30 секунд
+            try:
+                self.system_mode = self.db.get_setting('system_mode', 'collect')
+                self.training_period_minutes = int(self.db.get_setting('training_period_minutes', '60'))
+                
+                start_time_str = self.db.get_setting('collection_start_time')
+                if start_time_str:
+                    try:
+                        self.collection_start_time = datetime.fromisoformat(start_time_str)
+                    except:
+                        self.collection_start_time = datetime.now()
+                
+                # Проверка автоматического переключения
+                if self.system_mode == 'collect':
+                    elapsed = (datetime.now() - self.collection_start_time).total_seconds() / 60
+                    if elapsed >= self.training_period_minutes:
+                        logger.info(f"Период обучения ({self.training_period_minutes}м) завершен. Автоматический переход в MONITORING.")
+                        self.system_mode = 'detect'
+                        self.db.set_setting('system_mode', 'detect')
+                
+                self.last_settings_load = now_ts
+                logger.info(f"Настройки загружены: mode={self.system_mode}, period={self.training_period_minutes}m")
+            except Exception as e:
+                logger.error(f"Ошибка загрузки настроек: {e}")
+
+    def run(self, training_samples: int = 1000):
+        """
+        Запустить систему
+        
+        Args:
+            training_samples: Количество образцов для обучения модели
+        """
         self.start_time = datetime.now()
         
         # Установка колбэка для обработки сообщений
@@ -318,13 +572,18 @@ def main():
     print("=== Система обнаружения аномалий промышленного трафика ===")
     print()
     
+    # Определение путей относительно корня проекта
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    db_path = os.path.join(project_root, "data", "anomalies.db")
+    model_path = os.path.join(project_root, "models", "isolation_forest.pkl")
+
     # Создание системы
     system = AnomalyDetectionSystem(
         broker_host="broker.hivemq.com",
         broker_port=1883,
         topic_pattern="spBv1.0/#",
-        db_path="data/anomalies.db",
-        model_path="models/isolation_forest.pkl",
+        db_path=db_path,
+        model_path=model_path,
         window_size_seconds=60,
         contamination=0.05
     )

@@ -1,47 +1,69 @@
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Система обнаружения аномалий | Дашборд</title>
-    
+    <title>Anomaly Detection Dashboard</title>
+
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    
+
     <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment@1.0.1/dist/chartjs-adapter-moment.min.js"></script>
+
     <style>
         body {
             background-color: #f8f9fa;
         }
+
         .navbar-brand {
             font-weight: bold;
         }
+
         .stat-card {
             border: none;
             border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
             transition: transform 0.2s;
         }
+
         .stat-card:hover {
             transform: translateY(-5px);
         }
+
         .stat-card .card-body {
             padding: 1.5rem;
         }
+
         .stat-value {
             font-size: 2rem;
             font-weight: bold;
         }
+
         .stat-label {
             color: #6c757d;
             font-size: 0.9rem;
         }
-        .severity-critical { color: #dc3545; }
-        .severity-high { color: #fd7e14; }
-        .severity-medium { color: #ffc107; }
-        .severity-low { color: #198754; }
+
+        .severity-critical {
+            color: #dc3545;
+        }
+
+        .severity-high {
+            color: #fd7e14;
+        }
+
+        .severity-medium {
+            color: #ffc107;
+        }
+
+        .severity-low {
+            color: #198754;
+        }
+
         .anomaly-item {
             border-left: 4px solid #dc3545;
             padding: 10px;
@@ -49,17 +71,28 @@
             background-color: #fff;
             border-radius: 5px;
         }
-        .anomaly-item.severity-high { border-left-color: #fd7e14; }
-        .anomaly-item.severity-medium { border-left-color: #ffc107; }
-        .anomaly-item.severity-low { border-left-color: #198754; }
+
+        .anomaly-item.severity-high {
+            border-left-color: #fd7e14;
+        }
+
+        .anomaly-item.severity-medium {
+            border-left-color: #ffc107;
+        }
+
+        .anomaly-item.severity-low {
+            border-left-color: #198754;
+        }
+
         .chart-container {
             background: white;
             border-radius: 10px;
             padding: 20px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
         }
     </style>
 </head>
+
 <body>
     <!-- Навигация -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
@@ -131,11 +164,65 @@
             </div>
         </div>
 
+
+        <!-- Настройки системы -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card border-primary shadow-sm">
+                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center py-2">
+                        <h5 class="mb-0"><i class="fas fa-cog me-2"></i>Настройки аналитики</h5>
+                        <div>
+                            <span id="mode-badge" class="badge bg-light text-primary me-2">Загрузка...</span>
+                            <button class="btn btn-sm btn-light" onclick="updateSettings()"><i class="fas fa-save me-1"></i>Сохранить</button>
+                        </div>
+                    </div>
+                    <div class="card-body py-3">
+                        <div class="row align-items-center">
+                            <div class="col-md-5">
+                                <div class="row g-3 align-items-center">
+                                    <div class="col-auto">
+                                        <label class="col-form-label">Режим работы:</label>
+                                    </div>
+                                    <div class="col">
+                                        <select id="setting-mode" class="form-select" onchange="updateSettings()">
+                                            <option value="collect">Обучение (Сбор эталона)</option>
+                                            <option value="detect">Мониторинг (Активная детекция)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-5" id="training-period-container">
+                                <div class="row g-3 align-items-center">
+                                    <div class="col-auto">
+                                        <label class="col-form-label">Период нормализации (мин):</label>
+                                    </div>
+                                    <div class="col">
+                                        <input type="number" id="setting-period" class="form-control" value="60" min="1">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-2 text-end">
+                                <div id="training-status-global" class="small text-muted">
+                                    <!-- Статус будет тут -->
+                                    <div id="countdown-timer" class="mb-1 fw-bold text-primary" style="display:none;">
+                                        Осталось: <span id="time-remaining">-</span> мин
+                                    </div>
+                                    <div class="progress" style="height: 5px; display:none;" id="training-progress-container">
+                                        <div id="training-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Графики -->
         <div class="row mb-4">
             <div class="col-md-6 mb-3">
                 <div class="chart-container">
-                    <h5>Аномалии по严重程度 (24ч)</h5>
+                    <h5>Аномалии по уровню серьезности (24ч)</h5>
                     <canvas id="severityChart"></canvas>
                 </div>
             </div>
@@ -147,17 +234,18 @@
             </div>
         </div>
 
-        <!-- Последние аномалии -->
-        <div class="row mb-4" id="anomalies">
-            <div class="col">
-                <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
+        <!-- Последние аномалии и Трафик -->
+        <div class="row mb-4">
+            <!-- Аномалии -->
+            <div class="col-md-6 mb-3" id="anomalies">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center bg-white">
                         <h5 class="mb-0">Последние аномалии</h5>
                         <button class="btn btn-sm btn-outline-primary" onclick="loadAnomalies()">
                             Обновить
                         </button>
                     </div>
-                    <div class="card-body">
+                    <div class="card-body overflow-auto" style="max-height: 400px;">
                         <div id="anomalies-list">
                             <div class="text-center text-muted">
                                 <div class="spinner-border" role="status"></div>
@@ -167,21 +255,45 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Монитор трафика -->
+            <div class="col-md-6 mb-3" id="traffic">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center bg-white">
+                        <h5 class="mb-0">Монитор трафика (Live)</h5>
+                        <span class="badge bg-success" id="traffic-pulse">Active</span>
+                    </div>
+                    <div class="card-body p-0 overflow-auto" style="max-height: 400px;">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th>Время</th>
+                                    <th>Устройство</th>
+                                    <th>Тег</th>
+                                    <th>Значение</th>
+                                </tr>
+                            </thead>
+                            <tbody id="traffic-list">
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted">Ожидание данных...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Топ устройств -->
-        <div class="row mb-4" id="devices">
+        <div class="row" id="devices">
             <div class="col">
                 <div class="card">
                     <div class="card-header">
-                        <h5 class="mb-0">Топ устройств по количеству тегов</h5>
+                        <h5 class="mb-0">Активные устройства</h5>
                     </div>
                     <div class="card-body">
-                        <div id="devices-list">
-                            <div class="text-center text-muted">
-                                <div class="spinner-border" role="status"></div>
-                                <p>Загрузка...</p>
-                            </div>
+                        <div id="devices-list" class="row">
+                            <!-- Сюда будут вставлены устройства -->
                         </div>
                     </div>
                 </div>
@@ -189,9 +301,40 @@
         </div>
     </div>
 
+    <!-- Модальное окно деталей устройства -->
+    <div class="modal fade" id="deviceModal" tabindex="-1" aria-labelledby="deviceModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deviceModalLabel">Детали устройства: <span id="modal-device-id" class="text-primary"></span></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-9">
+                            <div class="chart-container mb-4" style="height: 400px; position: relative;">
+                                <canvas id="deviceSignalChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <h6>Теги устройства:</h6>
+                            <div id="modal-tags-list" class="list-group list-group-flush small overflow-auto" style="max-height: 400px;">
+                                <!-- Список тегов -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+                    <button type="button" class="btn btn-primary" onclick="refreshDeviceDetails()">Обновить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    
+
     <script>
         // Глобальные переменные для графиков
         let severityChart = null;
@@ -202,27 +345,59 @@
             try {
                 const response = await fetch('/api/summary');
                 const data = await response.json();
-                
+                const now = new Date();
+
                 // Обновление статистики
                 document.getElementById('anomalies-24h').textContent = data.anomalies_24h;
                 document.getElementById('anomalies-1h').textContent = data.anomalies_1h;
                 document.getElementById('devices-count').textContent = data.devices_count;
-                
-                const now = new Date();
-                document.getElementById('last-update').textContent = 
-                    now.getHours().toString().padStart(2, '0') + ':' + 
+
+                // Обновление настроек
+                if (data.settings) {
+                    const mode = data.settings.system_mode;
+                    const period = data.settings.training_period_minutes;
+                    
+                    document.getElementById('setting-mode').value = mode;
+                    document.getElementById('setting-period').value = period;
+                    
+                    const badge = document.getElementById('mode-badge');
+                    badge.textContent = mode === 'collect' ? 'СБОР ЭТАЛОНА' : 'МОНИТОРИНГ';
+                    badge.className = `badge ${mode === 'collect' ? 'bg-info' : 'bg-light text-primary'}`;
+
+                    // Обновление прогресса обучения и видимости полей
+                    const progressContainer = document.getElementById('training-progress-container');
+                    const countdownTimer = document.getElementById('countdown-timer');
+                    const periodContainer = document.getElementById('training-period-container');
+                    
+                    if (mode === 'collect' && data.training_status) {
+                        progressContainer.style.display = 'flex';
+                        countdownTimer.style.display = 'block';
+                        periodContainer.style.display = 'block';
+                        document.getElementById('training-progress-bar').style.width = data.training_status.progress_percent + '%';
+                        document.getElementById('time-remaining').textContent = data.training_status.remaining_minutes;
+                    } else {
+                        progressContainer.style.display = 'none';
+                        countdownTimer.style.display = 'none';
+                        periodContainer.style.display = 'none'; // Скрываем в мониторинге
+                    }
+                }
+                document.getElementById('last-update').textContent =
+                    now.getHours().toString().padStart(2, '0') + ':' +
                     now.getMinutes().toString().padStart(2, '0');
-                
+
                 // Обновление графиков
                 updateSeverityChart(data.by_severity_24h);
                 updateTypeChart(data.by_type_24h);
-                
+
                 // Обновление списка аномалий
                 updateAnomaliesList(data.recent_anomalies);
-                
+
+                // Обновление трафика
+                updateTrafficList(data.recent_traffic);
+
                 // Обновление списка устройств
                 updateDevicesList(data.top_devices);
-                
+
             } catch (error) {
                 console.error('Ошибка загрузки сводки:', error);
             }
@@ -231,11 +406,11 @@
         // Обновление графика严重程度
         function updateSeverityChart(data) {
             const ctx = document.getElementById('severityChart').getContext('2d');
-            
+
             if (severityChart) {
                 severityChart.destroy();
             }
-            
+
             severityChart = new Chart(ctx, {
                 type: 'doughnut',
                 data: {
@@ -269,14 +444,14 @@
         // Обновление графика типов
         function updateTypeChart(data) {
             const ctx = document.getElementById('typeChart').getContext('2d');
-            
+
             if (typeChart) {
                 typeChart.destroy();
             }
-            
+
             const labels = Object.keys(data);
             const values = Object.values(data);
-            
+
             typeChart = new Chart(ctx, {
                 type: 'bar',
                 data: {
@@ -311,21 +486,21 @@
         // Обновление списка аномалий
         function updateAnomaliesList(anomalies) {
             const container = document.getElementById('anomalies-list');
-            
+
             if (!anomalies || anomalies.length === 0) {
                 container.innerHTML = '<p class="text-muted">Аномалий не обнаружено</p>';
                 return;
             }
-            
+
             let html = '';
             anomalies.forEach(anomaly => {
                 const severityClass = `severity-${anomaly.severity}`;
                 const time = new Date(anomaly.timestamp).toLocaleString('ru-RU');
-                
+
                 html += `
                     <div class="anomaly-item ${severityClass}">
                         <div class="d-flex justify-content-between">
-                            <strong>${anomaly.device_id}</strong>
+                            <strong><a href="#" onclick="showDeviceDetails('${anomaly.device_id}'); return false;">${anomaly.device_id}</a></strong>
                             <span class="badge bg-${getSeverityBadge(anomaly.severity)}">${anomaly.severity}</span>
                         </div>
                         <div class="text-muted small">${time}</div>
@@ -334,19 +509,79 @@
                     </div>
                 `;
             });
-            
+
             container.innerHTML = html;
+        }
+
+        // Обновление списка трафика
+        function updateTrafficList(traffic) {
+            const container = document.getElementById('traffic-list');
+            const pulse = document.getElementById('traffic-pulse');
+
+            if (!traffic || traffic.length === 0) {
+                return;
+            }
+
+            // "Мигание" индикатора при получении данных
+            if (pulse) {
+                pulse.classList.remove('bg-success');
+                pulse.classList.add('bg-primary');
+                setTimeout(() => {
+                    pulse.classList.remove('bg-primary');
+                    pulse.classList.add('bg-success');
+                }, 500);
+            }
+
+            let html = '';
+            traffic.forEach(msg => {
+                const time = new Date(msg.timestamp).toLocaleTimeString('ru-RU');
+                const value = msg.value !== null ? msg.value.toFixed(2) : '-';
+
+                html += `
+                    <tr>
+                        <td class="small text-muted">${time}</td>
+                        <td><span class="badge bg-light text-dark">${msg.device_id || 'unknown'}</span></td>
+                        <td class="small">${msg.tag_name || '-'}</td>
+                        <td><span class="fw-bold">${value}</span></td>
+                    </tr>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        // Обновление настроек через API
+        async function updateSettings() {
+            const mode = document.getElementById('setting-mode').value;
+            const period = document.getElementById('setting-period').value;
+            
+            try {
+                const response = await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        system_mode: mode,
+                        training_period_minutes: parseInt(period)
+                    })
+                });
+                
+                if (response.ok) {
+                    loadSummary(); // Перезагрузить для обновления индикаторов
+                }
+            } catch (err) {
+                console.error("Failed to update settings:", err);
+            }
         }
 
         // Обновление списка устройств
         function updateDevicesList(devices) {
             const container = document.getElementById('devices-list');
-            
+
             if (!devices || devices.length === 0) {
                 container.innerHTML = '<p class="text-muted">Устройств не обнаружено</p>';
                 return;
             }
-            
+
             let html = '<div class="list-group">';
             devices.forEach((device, index) => {
                 html += `
@@ -361,11 +596,161 @@
                 `;
             });
             html += '</div>';
-            
+
             container.innerHTML = html;
         }
 
         // Получение цвета бейджа для严重程度
+        let deviceChart = null;
+        let currentModalDeviceId = null;
+
+        function showDeviceDetails(deviceId) {
+            currentModalDeviceId = deviceId;
+            document.getElementById('modal-device-id').innerText = deviceId;
+            
+            const modal = new bootstrap.Modal(document.getElementById('deviceModal'));
+            modal.show();
+            
+            loadDeviceData(deviceId);
+        }
+
+        function refreshDeviceDetails() {
+            if (currentModalDeviceId) {
+                loadDeviceData(currentModalDeviceId);
+            }
+        }
+
+        async function loadDeviceData(deviceId) {
+            try {
+                // Загрузка тегов и трафика параллельно
+                const [trafficRes, tagsRes] = await Promise.all([
+                    fetch(`/api/traffic/${deviceId}?limit=100`),
+                    fetch(`/api/tags/${deviceId}`)
+                ]);
+                
+                const traffic = await trafficRes.json();
+                const tags = await tagsRes.json();
+                
+                updateDeviceTagsList(tags);
+                updateDeviceChart(traffic);
+            } catch (error) {
+                console.error('Ошибка загрузки данных устройства:', error);
+            }
+        }
+
+        function updateDeviceTagsList(tags) {
+            const container = document.getElementById('modal-tags-list');
+            if (!tags || tags.length === 0) {
+                container.innerHTML = '<div class="list-group-item text-muted">Теги не найдены</div>';
+                return;
+            }
+            
+            let html = '';
+            tags.forEach(tag => {
+                const avg = tag.value_avg ? tag.value_avg.toFixed(2) : '-';
+                html += `
+                    <div class="list-group-item px-0 py-2">
+                        <div class="d-flex justify-content-between font-monospace">
+                            <span class="fw-bold">${tag.tag_name}</span>
+                            <span>${avg}</span>
+                        </div>
+                        <div class="d-flex justify-content-between x-small text-muted">
+                            <span>min: ${tag.value_min ? tag.value_min.toFixed(1) : '-'}</span>
+                            <span>max: ${tag.value_max ? tag.value_max.toFixed(1) : '-'}</span>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        function updateDeviceChart(traffic) {
+            const ctx = document.getElementById('deviceSignalChart').getContext('2d');
+            
+            if (!traffic || traffic.length === 0) {
+                if (deviceChart) deviceChart.destroy();
+                ctx.font = '14px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Нет данных для отображения на графике', ctx.canvas.width / 2, ctx.canvas.height / 2);
+                return;
+            }
+
+            // Группировка данных по тегам
+            const dataSets = {};
+            traffic.forEach(msg => {
+                if (msg.value === null) return;
+                
+                if (!dataSets[msg.tag_name]) {
+                    dataSets[msg.tag_name] = [];
+                }
+                dataSets[msg.tag_name].push({
+                    x: new Date(msg.timestamp),
+                    y: msg.value
+                });
+            });
+
+            const chartDataSets = Object.keys(dataSets).map((tagName, index) => {
+                const colors = [
+                    '#0d6efd', '#198754', '#dc3545', '#ffc107', '#0dcaf0', 
+                    '#6610f2', '#fd7e14', '#20c997', '#e83e8c', '#6f42c1'
+                ];
+                return {
+                    label: tagName,
+                    data: dataSets[tagName].sort((a, b) => a.x - b.x),
+                    borderColor: colors[index % colors.length],
+                    backgroundColor: colors[index % colors.length] + '20',
+                    borderWidth: 2,
+                    pointRadius: 2,
+                    tension: 0.2
+                };
+            });
+
+            if (deviceChart) {
+                deviceChart.destroy();
+            }
+
+            deviceChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    datasets: chartDataSets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'second',
+                                displayFormats: {
+                                    second: 'HH:mm:ss'
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Время'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Значение'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false
+                        }
+                    }
+                }
+            });
+        }
+
         function getSeverityBadge(severity) {
             const badges = {
                 'critical': 'danger',
@@ -388,12 +773,13 @@
         }
 
         // Инициализация при загрузке страницы
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             loadSummary();
-            
-            // Автоматическое обновление каждые 30 секунд
-            setInterval(loadSummary, 30000);
+
+            // Автоматическое обновление каждые 5 секунд для "живого" трафика
+            setInterval(loadSummary, 5000);
         });
     </script>
 </body>
+
 </html>

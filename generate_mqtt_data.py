@@ -11,9 +11,17 @@ from datetime import datetime
 # Создаём клиент
 client = mqtt.Client(client_id="data_generator")
 
-# Подключаемся к локальному брокеру
-host = "127.0.0.1"
-port = 1883
+# Параметры подключения
+import os
+import sys
+
+host = os.environ.get("MQTT_HOST", "broker.hivemq.com")
+port = int(os.environ.get("MQTT_PORT", 1883))
+
+if len(sys.argv) > 1:
+    host = sys.argv[1]
+if len(sys.argv) > 2:
+    port = int(sys.argv[2])
 
 print(f"Подключение к {host}:{port}...")
 client.connect(host, port, 60)

@@ -48,11 +48,11 @@ class DatabaseManager:
         """Создание таблиц базы данных"""
         try:
             # Создаём директорию если не существует
-            db_dir = os.path.dirname(self.db_path)
-            if db_dir and not os.path.exists(db_dir):
-                os.makedirs(db_dir, exist_ok=True)
-            
-            self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
+            self.conn = sqlite3.connect(
+                self.db_path, 
+                check_same_thread=False,
+                detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES
+            )
             self.conn.row_factory = sqlite3.Row
             
             cursor = self.conn.cursor()
@@ -85,6 +85,20 @@ class DatabaseManager:
                 )
             ''')
             
+            # Таблица трафика (последние сообщения)
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS traffic (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp DATETIME NOT NULL,
+                    topic TEXT NOT NULL,
+                    device_id TEXT,
+                    tag_name TEXT,
+                    value REAL,
+                    payload TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
             # Таблица тегов
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS tags (
@@ -101,10 +115,29 @@ class DatabaseManager:
                 )
             ''')
             
+            # Таблица настроек
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS settings (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            # Инициализация настроек по умолчанию
+            defaults = {
+                'training_period_minutes': '60',
+                'system_mode': 'collect',  # 'collect' или 'detect'
+                'collection_start_time': datetime.now().isoformat()
+            }
+            for key, val in defaults.items():
+                cursor.execute('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', (key, val))
+
             # Индексы для ускорения запросов
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_anomalies_timestamp ON anomalies(timestamp)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_anomalies_device ON anomalies(device_id)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_anomalies_severity ON anomalies(severity)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_traffic_timestamp ON traffic(timestamp)')
             
             self.conn.commit()
             logger.info(f"База данных инициализирована: {self.db_path}")
@@ -250,6 +283,117 @@ class DatabaseManager:
             logger.error(f"Ошибка получения статистики: {e}")
             return {"total": 0, "by_type": {}, "by_severity": {}, "period_hours": hours}
     
+    def log_traffic(self, topic: str, device_id: str = None, tag_name: str = None, 
+                   value: float = None, payload: str = None) -> bool:
+        """
+        Записать сообщение в лог трафика
+        """
+        try:
+            cursor = self.conn.cursor()
+            now = datetime.now()
+            
+            cursor.execute('''
+                INSERT INTO traffic (timestamp, topic, device_id, tag_name, value, payload)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (now, topic, device_id, tag_name, value, payload))
+            
+            # Удаляем старый трафик (оставляем последние 1000 записей)
+            cursor.execute('''
+                DELETE FROM traffic 
+                WHERE id <= (SELECT id FROM traffic ORDER BY id DESC LIMIT 1 OFFSET 1000)
+            ''')
+            
+            self.conn.commit()
+            return True
+        except sqlite3.Error as e:
+            logger.error(f"Ошибка логирования трафика: {e}")
+            self.conn.rollback()
+            return False
+
+    def get_recent_traffic(self, limit: int = 50) -> List[Dict]:
+        """
+        Получить последние сообщения трафика
+        """
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute('SELECT * FROM traffic ORDER BY timestamp DESC LIMIT ?', (limit,))
+            rows = cursor.fetchall()
+            return [dict(row) for row in rows]
+        except sqlite3.Error as e:
+            logger.error(f"Ошибка получения трафика: {e}")
+            return []
+
+    def get_device_traffic(self, device_id: str, limit: int = 100) -> List[Dict]:
+        """
+        Получить историю трафика для конкретного устройства
+        """
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute('''
+                SELECT * FROM traffic 
+                WHERE device_id = ? 
+                AND value IS NOT NULL
+                ORDER BY timestamp DESC 
+                LIMIT ?
+            ''', (device_id, limit))
+            rows = cursor.fetchall()
+            return [dict(row) for row in rows]
+        except sqlite3.Error as e:
+            logger.error(f"Ошибка получения трафика устройства {device_id}: {e}")
+            return []
+
+    def get_device_tags(self, device_id: str) -> List[Dict]:
+        """
+        Получить список тегов для конкретного устройства
+        """
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute('SELECT * FROM tags WHERE device_id = ? ORDER BY tag_name', (device_id,))
+            rows = cursor.fetchall()
+            return [dict(row) for row in rows]
+        except sqlite3.Error as e:
+            logger.error(f"Ошибка получения тегов устройства {device_id}: {e}")
+            return []
+
+    def register_tag(self, device_id: str, tag_name: str, value: float = None) -> bool:
+        """
+        Зарегистрировать тег для устройства
+        """
+        try:
+            cursor = self.conn.cursor()
+            now = datetime.now()
+            
+            # Проверяем существование тега
+            cursor.execute('SELECT id FROM tags WHERE device_id = ? AND tag_name = ?', (device_id, tag_name))
+            row = cursor.fetchone()
+            
+            if row:
+                # Обновляем тег
+                cursor.execute('''
+                    UPDATE tags SET 
+                    last_seen = ?,
+                    value_min = MIN(COALESCE(value_min, ?), ?),
+                    value_max = MAX(COALESCE(value_max, ?), ?),
+                    value_avg = (value_avg + ?) / 2.0
+                    WHERE id = ?
+                ''', (now, value, value, value, value, value, row[0]))
+            else:
+                # Добавляем новый тег
+                cursor.execute('''
+                    INSERT INTO tags (device_id, tag_name, first_seen, last_seen, value_min, value_max, value_avg)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                ''', (device_id, tag_name, now, now, value, value, value))
+                
+                # Обновляем счетчик тегов в таблице устройств
+                cursor.execute('UPDATE devices SET tags_count = tags_count + 1 WHERE device_id = ?', (device_id,))
+            
+            self.conn.commit()
+            return True
+        except sqlite3.Error as e:
+            logger.error(f"Ошибка регистрации тега: {e}")
+            self.conn.rollback()
+            return False
+    
     def register_device(self, device_id: str, node_id: str, group_id: str) -> bool:
         """
         Зарегистрировать новое устройство или обновить время последнего seen
@@ -266,14 +410,25 @@ class DatabaseManager:
             cursor = self.conn.cursor()
             now = datetime.now()
             
-            cursor.execute('''
-                INSERT OR REPLACE INTO devices 
-                (device_id, node_id, group_id, first_seen, last_seen)
-                VALUES (?, ?, ?, 
-                    COALESCE((SELECT first_seen FROM devices WHERE device_id = ?), ?),
-                    ?
-                )
-            ''', (device_id, node_id, group_id, device_id, now, now))
+            # Проверяем существование устройства
+            cursor.execute('SELECT first_seen FROM devices WHERE device_id = ?', (device_id,))
+            row = cursor.fetchone()
+            
+            if row:
+                # Обновляем существующее устройство, сохраняя tags_count
+                cursor.execute('''
+                    UPDATE devices SET 
+                    node_id = ?, 
+                    group_id = ?, 
+                    last_seen = ?
+                    WHERE device_id = ?
+                ''', (node_id, group_id, now, device_id))
+            else:
+                # Вставляем новое устройство
+                cursor.execute('''
+                    INSERT INTO devices (device_id, node_id, group_id, first_seen, last_seen, tags_count)
+                    VALUES (?, ?, ?, ?, ?, 0)
+                ''', (device_id, node_id, group_id, now, now))
             
             self.conn.commit()
             return True
@@ -300,6 +455,32 @@ class DatabaseManager:
             logger.error(f"Ошибка получения устройств: {e}")
             return []
     
+    def get_setting(self, key: str, default: str = None) -> str:
+        """Получить значение настройки"""
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute('SELECT value FROM settings WHERE key = ?', (key,))
+            row = cursor.fetchone()
+            return row[0] if row else default
+        except sqlite3.Error as e:
+            logger.error(f"Ошибка получения настройки {key}: {e}")
+            return default
+
+    def set_setting(self, key: str, value: str) -> bool:
+        """Установить значение настройки"""
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute('''
+                INSERT OR REPLACE INTO settings (key, value, updated_at)
+                VALUES (?, ?, CURRENT_TIMESTAMP)
+            ''', (key, str(value)))
+            self.conn.commit()
+            return True
+        except sqlite3.Error as e:
+            logger.error(f"Ошибка установки настройки {key}: {e}")
+            self.conn.rollback()
+            return False
+
     def close(self):
         """Закрыть соединение с базой данных"""
         if self.conn:
