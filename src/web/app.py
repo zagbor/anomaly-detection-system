@@ -52,6 +52,18 @@ def dashboard():
     return render_template('dashboard.html')
 
 
+@app.route('/traffic')
+def traffic_page():
+    """Отдельная страница мониторинга трафика (Live) с фильтрами"""
+    return render_template('traffic.html')
+
+
+@app.route('/anomalies')
+def anomalies_page():
+    """Отдельная страница журнала аномалий с фильтрами"""
+    return render_template('anomalies.html')
+
+
 @app.route('/api/anomalies')
 def get_anomalies():
     """API: Получить последние аномалии"""

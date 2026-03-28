@@ -1,0 +1,113 @@
+--- RECENT ANOMALIES ---
+(51, '2026-03-22 20:42:00.661839', 'NBIRTH', 'medium', -0.13224609216102146, 'Обнаружена аномалия (score=-0.1322, prob=26.45%)')
+(50, '2026-03-22 20:36:35.446570', 'NBIRTH', 'medium', -0.13734588792792934, 'Обнаружена аномалия (score=-0.1373, prob=27.47%)')
+(49, '2026-03-22 20:36:25.414530', 'NBIRTH', 'medium', -0.021563902171156002, 'Обнаружена аномалия (score=-0.0216, prob=4.31%)')
+(48, '2026-03-22 20:36:15.269282', 'NBIRTH', 'medium', -0.021563902171156002, 'Обнаружена аномалия (score=-0.0216, prob=4.31%)')
+(47, '2026-03-22 20:36:05.171438', 'NBIRTH', 'medium', -0.01818063233659417, 'Обнаружена аномалия (score=-0.0182, prob=3.64%)')
+(46, '2026-03-22 20:35:55.036387', 'NBIRTH', 'medium', -0.01818063233659417, 'Обнаружена аномалия (score=-0.0182, prob=3.64%)')
+(45, '2026-03-22 20:35:44.898135', 'NBIRTH', 'medium', -0.014180998900020114, 'Обнаружена аномалия (score=-0.0142, prob=2.84%)')
+(44, '2026-03-22 20:35:35.253835', 'NBIRTH', 'medium', -0.019079312399727155, 'Обнаружена аномалия (score=-0.0191, prob=3.82%)')
+(43, '2026-03-22 20:35:20.591768', 'NBIRTH', 'medium', -0.13734588792792934, 'Обнаружена аномалия (score=-0.1373, prob=27.47%)')
+(42, '2026-03-22 20:35:10.609909', 'NBIRTH', 'medium', -0.10848948455902918, 'Обнаружена аномалия (score=-0.1085, prob=21.70%)')
+
+--- LATEST DETECTOR LOG ---
+2026-03-22 20:42:02,231 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=thick/MTR-100/status/state/running, value=-716.5005
+2026-03-22 20:42:02,236 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=thick/MTR-100/status/state/stopped, value=-716.5005
+2026-03-22 20:42:02,241 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=thick/MTR-100/status/state/fault, value=-716.5005
+2026-03-22 20:42:02,245 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=thick/MTR-100/commands/run/start, value=-716.5005
+2026-03-22 20:42:02,250 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=thick/MTR-100/commands/run/stop, value=-716.5005
+2026-03-22 20:42:02,254 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=thick/MTR-100/alarms/overload/active, value=-716.5005
+2026-03-22 20:42:02,259 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=thick/MTR-100/alarms/bearing_temp/active, value=-716.5005
+2026-03-22 20:42:02,263 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=thick/MTR-100/counters/starts/count, value=-716.5005
+2026-03-22 20:42:02,267 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=thick/MTR-100/flags/_flags/maintenance, value=-716.5005
+2026-03-22 20:42:02,272 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=thick/MTR-100/flags/_flags/bypass, value=0.1492
+2026-03-22 20:42:02,276 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=thick/MTR-100/flags/_flags/simulation, value=0.5968
+2026-03-22 20:42:02,282 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=thick/MTR-100/flags/_flags/inhibit, value=2.3871
+2026-03-22 20:42:02,286 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=thick/P-100/analogs/runtime_hours/pv, value=9.5483
+2026-03-22 20:42:02,291 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=thick/P-100/status/state/running, value=38.1932
+2026-03-22 20:42:02,295 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=thick/P-100/status/state/stopped, value=152.7729
+2026-03-22 20:42:02,299 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=thick/P-100/status/state/fault, value=611.0917
+2026-03-22 20:42:02,305 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=thick/P-100/status/mode/auto, value=2444.3669
+2026-03-22 20:42:02,309 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=thick/P-100/status/mode/manual, value=-716.5005
+2026-03-22 20:42:02,314 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=thick/P-100/status/mode/local, value=-716.5005
+2026-03-22 20:42:02,318 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=thick/P-100/commands/run/start, value=-716.5005
+2026-03-22 20:42:02,322 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=thick/P-100/commands/run/stop, value=-716.5005
+2026-03-22 20:42:02,358 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=thick/P-100/alarms/fail_to_start/active, value=-716.5005
+2026-03-22 20:42:02,367 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=thick/P-100/alarms/fail_to_stop/active, value=-716.5005
+2026-03-22 20:42:02,375 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=thick/P-100/alarms/overload/active, value=-716.5005
+2026-03-22 20:42:02,383 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=thick/P-100/counters/starts/count, value=-716.5005
+2026-03-22 20:42:02,388 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=thick/P-100/flags/_flags/maintenance, value=-716.5005
+2026-03-22 20:42:02,396 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=thick/P-100/flags/_flags/bypass, value=-716.5005
+2026-03-22 20:42:02,400 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=thick/P-100/flags/_flags/simulation, value=-716.5005
+2026-03-22 20:42:02,406 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=thick/P-100/flags/_flags/inhibit, value=-716.5005
+2026-03-22 20:42:02,412 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/FL-100/analogs/differential_pressure/pv, value=-716.5005
+2026-03-22 20:42:02,417 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/FL-100/analogs/inlet_pressure/pv, value=-716.5005
+2026-03-22 20:42:02,422 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/FL-100/analogs/outlet_pressure/pv, value=-716.5005
+2026-03-22 20:42:02,426 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/FL-100/status/status/normal, value=-716.5005
+2026-03-22 20:42:02,432 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/FL-100/status/status/dp_high, value=-716.5005
+2026-03-22 20:42:02,437 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/FL-100/status/status/bypass, value=-716.5005
+2026-03-22 20:42:02,442 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/FL-100/setpoints/dp_h/sp, value=-716.5005
+2026-03-22 20:42:02,447 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/FL-100/setpoints/dp_h/rb, value=-716.5005
+2026-03-22 20:42:02,450 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/FL-100/alarms/dp_hh/active, value=-716.5005
+2026-03-22 20:42:02,456 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/FL-100/alarms/dp_h/active, value=-716.5005
+2026-03-22 20:42:02,462 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/FL-100/flags/_flags/maintenance, value=-716.5005
+2026-03-22 20:42:02,468 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/FL-100/flags/_flags/bypass, value=-716.5005
+2026-03-22 20:42:02,472 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/FL-100/flags/_flags/simulation, value=-716.5005
+2026-03-22 20:42:02,476 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/FL-100/flags/_flags/inhibit, value=-716.5005
+2026-03-22 20:42:02,483 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/FL-101/analogs/differential_pressure/pv, value=-716.5005
+2026-03-22 20:42:02,487 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/FL-101/analogs/inlet_pressure/pv, value=-716.5005
+2026-03-22 20:42:02,493 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/FL-101/analogs/outlet_pressure/pv, value=-716.5005
+2026-03-22 20:42:02,498 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/FL-101/status/status/normal, value=-716.5005
+2026-03-22 20:42:02,504 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/FL-101/status/status/dp_high, value=-716.5005
+2026-03-22 20:42:02,509 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/FL-101/status/status/bypass, value=-716.5005
+2026-03-22 20:42:02,517 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/FL-101/setpoints/dp_h/sp, value=-716.5005
+2026-03-22 20:42:02,523 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/FL-101/setpoints/dp_h/rb, value=-716.5005
+2026-03-22 20:42:02,529 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/FL-101/alarms/dp_hh/active, value=-716.5005
+2026-03-22 20:42:02,533 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/FL-101/alarms/dp_h/active, value=-716.5005
+2026-03-22 20:42:02,538 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/FL-101/flags/_flags/maintenance, value=-716.5005
+2026-03-22 20:42:02,541 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/FL-101/flags/_flags/bypass, value=-716.5005
+2026-03-22 20:42:02,546 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/FL-101/flags/_flags/simulation, value=-716.5005
+2026-03-22 20:42:02,550 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/FL-101/flags/_flags/inhibit, value=-716.5005
+2026-03-22 20:42:02,554 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/P-200/analogs/runtime_hours/pv, value=-716.5005
+2026-03-22 20:42:02,559 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/P-200/status/state/running, value=-716.5005
+2026-03-22 20:42:02,564 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/P-200/status/state/stopped, value=-716.5005
+2026-03-22 20:42:02,580 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/P-200/status/state/fault, value=-716.5005
+2026-03-22 20:42:02,585 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/P-200/status/mode/auto, value=-716.5005
+2026-03-22 20:42:02,591 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/P-200/status/mode/manual, value=-716.5005
+2026-03-22 20:42:02,596 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/P-200/status/mode/local, value=-716.5005
+2026-03-22 20:42:02,603 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/P-200/commands/run/start, value=-716.5005
+2026-03-22 20:42:02,609 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/P-200/commands/run/stop, value=-716.5005
+2026-03-22 20:42:02,613 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/P-200/alarms/fail_to_start/active, value=-716.5005
+2026-03-22 20:42:02,619 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/P-200/alarms/fail_to_stop/active, value=-716.5005
+2026-03-22 20:42:02,624 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/P-200/alarms/overload/active, value=-716.5005
+2026-03-22 20:42:02,629 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/P-200/counters/starts/count, value=-716.5005
+2026-03-22 20:42:02,634 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/P-200/flags/_flags/maintenance, value=-716.5005
+2026-03-22 20:42:02,654 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/P-200/flags/_flags/bypass, value=-716.5005
+2026-03-22 20:42:02,662 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/P-200/flags/_flags/simulation, value=-716.5005
+2026-03-22 20:42:02,667 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/P-200/flags/_flags/inhibit, value=-716.5005
+2026-03-22 20:42:02,675 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/PT-100/analogs/pv/pv, value=-716.5005
+2026-03-22 20:42:02,680 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/PT-100/setpoints/hh/sp, value=-716.5005
+2026-03-22 20:42:02,686 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/PT-100/setpoints/hh/rb, value=-716.5005
+2026-03-22 20:42:02,691 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/PT-100/setpoints/h/sp, value=-716.5005
+2026-03-22 20:42:02,696 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/PT-100/setpoints/h/rb, value=-716.5005
+2026-03-22 20:42:02,701 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/PT-100/setpoints/l/sp, value=-716.5005
+2026-03-22 20:42:02,708 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/PT-100/setpoints/l/rb, value=-716.5005
+2026-03-22 20:42:02,712 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/PT-100/setpoints/ll/sp, value=-716.5005
+2026-03-22 20:42:02,719 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/PT-100/setpoints/ll/rb, value=-716.5005
+2026-03-22 20:42:02,725 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/PT-100/alarms/hh/active, value=-716.5005
+2026-03-22 20:42:02,730 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/PT-100/alarms/h/active, value=-716.5005
+2026-03-22 20:42:02,735 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/PT-100/alarms/l/active, value=-716.5005
+2026-03-22 20:42:02,741 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/PT-100/alarms/ll/active, value=-716.5005
+2026-03-22 20:42:02,745 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/PT-100/flags/_flags/maintenance, value=-716.5005
+2026-03-22 20:42:02,750 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/PT-100/flags/_flags/bypass, value=-716.5005
+2026-03-22 20:42:02,755 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/PT-100/flags/_flags/simulation, value=-716.5005
+2026-03-22 20:42:02,761 - __main__ - INFO - [NETWORK] Captured: device=NBIRTH, tag=filter/PT-100/flags/_flags/inhibit, value=-716.5005
+2026-03-22 20:42:02,780 - __main__ - DEBUG - MQTT RECEIVE: topic=spBv1.0/british_columbia/tank_farm/tikkanen_span/DBIRTH/tikkanen_span/rtu_003, payload_len=9
+2026-03-22 20:42:02,783 - __main__ - DEBUG - Protobuf decoder failed, using fallback: attempted relative import with no known parent package
+2026-03-22 20:42:02,784 - __main__ - DEBUG - MQTT RECEIVE: topic=spBv1.0/british_columbia/tank_farm/tikkanen_span/DBIRTH/tikkanen_span/rtu_002, payload_len=9
+2026-03-22 20:42:02,787 - __main__ - DEBUG - Protobuf decoder failed, using fallback: attempted relative import with no known parent package
+2026-03-22 20:42:02,787 - __main__ - DEBUG - MQTT RECEIVE: topic=spBv1.0/saskatchewan/rail_maintenance/royal_grade/NDEATH/royal_grade, payload_len=9
+2026-03-22 20:42:02,789 - __main__ - DEBUG - Protobuf decoder failed, using fallback: attempted relative import with no known parent package
+2026-03-22 20:42:02,789 - __main__ - DEBUG - MQTT RECEIVE: topic=spBv1.0/british_columbia/tank_farm/tikkanen_span/DBIRTH/tikkanen_span/rtu_001, payload_len=9
+2026-03-22 20:42:02,791 - __main__ - DEBUG - Protobuf decoder failed, using fallback: attempted relative import with no known parent package
+2026-03-22 20:42:11,470 - __main__ - INFO - Настройки загружены: mode=detect, period=3m

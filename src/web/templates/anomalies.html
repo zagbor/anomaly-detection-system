@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Журнал Аномалий</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body { background-color: #f4f6f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        .navbar-brand { font-weight: bold; }
+        .filters-panel { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 15px; }
+        .table-container { background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); flex-grow: 1; overflow-y: auto; position: relative; }
+        thead { position: sticky; top: 0; background: #f8f9fa; z-index: 10; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .search-icon { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #adb5bd; }
+        .search-box { padding-left: 35px; border-radius: 20px; }
+        .row-animation { animation: flash 1.5s ease-out; }
+        @keyframes flash {
+            0% { background-color: rgba(220, 53, 69, 0.2); }
+            100% { background-color: transparent; }
+        }
+        .severity-critical { background-color: #dc3545; color: white; }
+        .severity-high { background-color: #fd7e14; color: white; }
+        .severity-medium { background-color: #ffc107; color: black; }
+        .severity-low { background-color: #17a2b8; color: black; }
+        
+        .anomaly-card {
+            border-left: 4px solid transparent;
+            background: #fff;
+            margin-bottom: 10px;
+            border-radius: 6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            transition: transform 0.1s;
+        }
+        .anomaly-card:hover {
+            transform: translateX(2px);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        }
+        .border-critical { border-left-color: #dc3545 !important; }
+        .border-high { border-left-color: #fd7e14 !important; }
+        .border-medium { border-left-color: #ffc107 !important; }
+        .border-low { border-left-color: #17a2b8 !important; }
+        
+        .metric-badge {
+            font-size: 0.8rem;
+            padding: 3px 8px;
+            border-radius: 12px;
+            background: #e9ecef;
+            color: #495057;
+            margin-right: 5px;
+            border: 1px solid #dee2e6;
+        }
+    </style>
+</head>
+<body>
+    <!-- Навигация -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-danger flex-shrink-0">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-arrow-left me-2"></i> Назад в Дашборд
+            </a>
+            <span class="navbar-text text-white">
+                <i class="fas fa-exclamation-triangle me-2"></i>Журнал Аномалий
+            </span>
+        </div>
+    </nav>
+
+    <div class="container-fluid d-flex flex-column flex-grow-1 p-3">
+        <!-- Фильтры -->
+        <div class="filters-panel flex-shrink-0">
+            <div class="row g-3 align-items-center">
+                <div class="col-md-3 position-relative">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" id="filter-search" class="form-control search-box" placeholder="Поиск по описанию, тегу..." oninput="applyFilters()">
+                </div>
+                
+                <div class="col-md-2">
+                    <select id="filter-device" class="form-select" onchange="applyFilters()">
+                        <option value="ALL">Все устройства</option>
+                        <!-- Заполняется динамически -->
+                    </select>
+                </div>
+                
+                <div class="col-md-2">
+                    <select id="filter-severity" class="form-select" onchange="applyFilters()">
+                        <option value="ALL">Любая угроза</option>
+                        <option value="critical">Критичная (Critical)</option>
+                        <option value="high">Высокая (High)</option>
+                        <option value="medium">Средняя (Medium)</option>
+                        <option value="low">Низкая (Low)</option>
+                    </select>
+                </div>
+                
+                <div class="col-md-2">
+                    <select id="filter-limit" class="form-select" onchange="loadAnomalies()">
+                        <option value="100">Последние 100 записей</option>
+                        <option value="500" selected>Последние 500 записей</option>
+                        <option value="2000">Последние 2000 записей</option>
+                    </select>
+                </div>
+
+                <div class="col-md-3 text-end d-flex justify-content-end align-items-center">
+                    <span class="text-muted small me-3" id="stats-label">Отображено: 0/0</span>
+                    <button class="btn btn-outline-secondary me-2" id="btn-pause" onclick="togglePause()">
+                        <i class="fas fa-pause me-1"></i>Пауза
+                    </button>
+                    <button class="btn btn-danger" onclick="loadAnomalies()">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Список аномалий -->
+        <div class="table-container p-2" id="anomalies-container">
+            <div class="text-center py-5 text-muted">
+                <div class="spinner-border text-danger spinner-border-sm me-2"></div> Загрузка журнала аномалий...
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        let rawAnomaliesData = [];
+        let isPaused = false;
+        let updateInterval = null;
+        let lastTimestamp = 0;
+
+        // Маппинг иконок и цветов для типов аномалий
+        const uiConfig = {
+            'critical': { icon: 'fa-radiation', label: 'Critical' },
+            'high':     { icon: 'fa-fire', label: 'High' },
+            'medium':   { icon: 'fa-exclamation', label: 'Medium' },
+            'low':      { icon: 'fa-info', label: 'Low' }
+        };
+
+        async function loadDevices() {
+            try {
+                const response = await fetch('/api/devices');
+                const devices = await response.json();
+                const select = document.getElementById('filter-device');
+                
+                const currentVal = select.value;
+                select.innerHTML = '<option value="ALL">Все устройства</option>';
+                
+                devices.forEach(d => {
+                    const opt = document.createElement('option');
+                    opt.value = d.device_id;
+                    opt.textContent = d.device_id;
+                    select.appendChild(opt);
+                });
+                select.value = currentVal;
+            } catch (err) {
+                console.error("Ошибка загрузки списка устройств:", err);
+            }
+        }
+
+        async function loadAnomalies() {
+            if (isPaused) return;
+            
+            const limit = document.getElementById('filter-limit').value;
+            try {
+                const response = await fetch('/api/anomalies?limit=' + limit);
+                rawAnomaliesData = await response.json();
+                applyFilters();
+            } catch (err) {
+                console.error("Ошибка загрузки аномалий:", err);
+            }
+        }
+
+        function applyFilters() {
+            const searchTerm = document.getElementById('filter-search').value.toLowerCase().trim();
+            const deviceFilter = document.getElementById('filter-device').value;
+            const severityFilter = document.getElementById('filter-severity').value;
+            
+            const container = document.getElementById('anomalies-container');
+            
+            // Фильтрация
+            const filtered = rawAnomaliesData.filter(msg => {
+                if (deviceFilter !== "ALL" && msg.device_id !== deviceFilter) return false;
+                if (severityFilter !== "ALL" && msg.severity !== severityFilter) return false;
+                
+                if (searchTerm) {
+                    const descStr = (msg.description || '').toLowerCase();
+                    const tagStr = (msg.tag_name || '').toLowerCase();
+                    const devStr = (msg.device_id || '').toLowerCase();
+                    const typeStr = (msg.anomaly_type || '').toLowerCase();
+                    
+                    if (!descStr.includes(searchTerm) && !tagStr.includes(searchTerm) && 
+                        !devStr.includes(searchTerm) && !typeStr.includes(searchTerm)) {
+                        return false;
+                    }
+                }
+                return true;
+            });
+
+            document.getElementById('stats-label').innerHTML = `Отображено: <b>${filtered.length}</b> / ${rawAnomaliesData.length}`;
+
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="text-center py-4 text-muted"><i class="fas fa-check-circle fa-2x mb-3 text-success d-block"></i>Аномалий, подходящих под фильтры, не найдено</div>';
+                return;
+            }
+
+            let html = '';
+            let newLastTimestamp = lastTimestamp;
+            
+            filtered.forEach((msg, index) => {
+                const ts = new Date(msg.timestamp);
+                const timeStr = ts.toLocaleString('ru-RU', { 
+                    day: '2-digit', month: '2-digit', year: 'numeric',
+                    hour: '2-digit', minute: '2-digit', second: '2-digit'
+                });
+                
+                // Извлечение вероятности из description (e.g. "prob=85.00%")
+                let probText = "Н/Д";
+                const probMatch = msg.description.match(/prob=([\d.]+%)/);
+                if (probMatch) { probText = probMatch[1]; }
+                
+                const isNew = ts.getTime() > lastTimestamp && index < 10;
+                newLastTimestamp = Math.max(newLastTimestamp, ts.getTime());
+                
+                const sevConfig = uiConfig[msg.severity] || uiConfig['medium'];
+
+                html += `
+                    <div class="anomaly-card border-${msg.severity} p-3 ${isNew ? 'row-animation' : ''}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="mb-1 text-dark fw-bold">
+                                    <i class="fas ${sevConfig.icon} text-${msg.severity === 'critical' ? 'danger' : msg.severity === 'high' ? 'warning' : 'info'} me-2"></i>
+                                    Устройство: <span class="text-primary">${msg.device_id || '-'}</span>
+                                    <span class="badge severity-${msg.severity} ms-2 px-2 py-1">${sevConfig.label.toUpperCase()}</span>
+                                </h6>
+                                <div class="small text-muted mb-2"><i class="far fa-clock me-1"></i> ${timeStr}</div>
+                            </div>
+                            <div class="text-end">
+                                <div class="metric-badge mb-1" title="Оценка модели Isolation Forest">
+                                    <strong>Score:</strong> <span class="font-monospace">${msg.anomaly_score.toFixed(4)}</span>
+                                </div>
+                                <div class="metric-badge bg-danger text-white border-danger" title="Вероятность/Уверенность нейросети">
+                                    <strong>Вероятность:</strong> ${probText}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-2 bg-light p-2 rounded border">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <span class="text-secondary small text-uppercase fw-bold">Тип отклонения</span><br>
+                                    <span class="font-monospace text-dark">${msg.anomaly_type || 'Unknown'}</span>
+                                </div>
+                                <div class="col-md-6">
+                                    <span class="text-secondary small text-uppercase fw-bold">Подробности</span><br>
+                                    <span class="text-dark">${msg.description}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-2 pt-2 border-top">
+                            <span class="text-secondary small fw-bold">Затронутый тег:</span> 
+                            <span class="badge bg-secondary font-monospace px-2">${msg.tag_name || 'multiple'}</span>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+            
+            if (!isPaused) {
+                lastTimestamp = newLastTimestamp;
+            }
+        }
+
+        function togglePause() {
+            isPaused = !isPaused;
+            const btn = document.getElementById('btn-pause');
+            if (isPaused) {
+                btn.className = 'btn btn-secondary me-2';
+                btn.innerHTML = '<i class="fas fa-play me-1"></i>Продолжить Live';
+            } else {
+                btn.className = 'btn btn-outline-secondary me-2';
+                btn.innerHTML = '<i class="fas fa-pause me-1"></i>Пауза';
+                loadAnomalies(); 
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadDevices();
+            loadAnomalies();
+            
+            updateInterval = setInterval(() => {
+                loadAnomalies();
+                if (Math.random() < 0.1) loadDevices(); 
+            }, 2000);
+        });
+    </script>
+</body>
+</html>

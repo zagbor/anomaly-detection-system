@@ -44,7 +44,7 @@
         }
 
         .stat-label {
-            color: #6c757d;
+            color: #000000;
             font-size: 0.9rem;
         }
 
@@ -169,11 +169,13 @@
         <div class="row mb-4">
             <div class="col-12">
                 <div class="card border-primary shadow-sm">
-                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center py-2">
+                    <div
+                        class="card-header bg-primary text-white d-flex justify-content-between align-items-center py-2">
                         <h5 class="mb-0"><i class="fas fa-cog me-2"></i>Настройки аналитики</h5>
                         <div>
                             <span id="mode-badge" class="badge bg-light text-primary me-2">Загрузка...</span>
-                            <button class="btn btn-sm btn-light" onclick="updateSettings()"><i class="fas fa-save me-1"></i>Сохранить</button>
+                            <button id="btn-action" class="btn btn-sm btn-light" onclick="handleAction()"><i
+                                    class="fas fa-save me-1"></i>Сохранить</button>
                         </div>
                     </div>
                     <div class="card-body py-3">
@@ -184,7 +186,7 @@
                                         <label class="col-form-label">Режим работы:</label>
                                     </div>
                                     <div class="col">
-                                        <select id="setting-mode" class="form-select" onchange="updateSettings()">
+                                        <select id="setting-mode" class="form-select" onchange="updateActionUI()">
                                             <option value="collect">Обучение (Сбор эталона)</option>
                                             <option value="detect">Мониторинг (Активная детекция)</option>
                                         </select>
@@ -197,7 +199,8 @@
                                         <label class="col-form-label">Период нормализации (мин):</label>
                                     </div>
                                     <div class="col">
-                                        <input type="number" id="setting-period" class="form-control" value="60" min="1">
+                                        <input type="number" id="setting-period" class="form-control" value="60" min="1"
+                                            oninput="updateActionUI()">
                                     </div>
                                 </div>
                             </div>
@@ -207,8 +210,11 @@
                                     <div id="countdown-timer" class="mb-1 fw-bold text-primary" style="display:none;">
                                         Осталось: <span id="time-remaining">-</span> мин
                                     </div>
-                                    <div class="progress" style="height: 5px; display:none;" id="training-progress-container">
-                                        <div id="training-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                                    <div class="progress" style="height: 5px; display:none;"
+                                        id="training-progress-container">
+                                        <div id="training-progress-bar"
+                                            class="progress-bar progress-bar-striped progress-bar-animated"
+                                            role="progressbar" style="width: 0%"></div>
                                     </div>
                                 </div>
                             </div>
@@ -240,10 +246,15 @@
             <div class="col-md-6 mb-3" id="anomalies">
                 <div class="card h-100">
                     <div class="card-header d-flex justify-content-between align-items-center bg-white">
-                        <h5 class="mb-0">Последние аномалии</h5>
-                        <button class="btn btn-sm btn-outline-primary" onclick="loadAnomalies()">
-                            Обновить
-                        </button>
+                        <div class="d-flex align-items-center">
+                            <h5 class="mb-0 me-3">Последние аномалии</h5>
+                            <button class="btn btn-sm btn-outline-primary" onclick="loadAnomalies()" title="Обновить">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                        <a href="/anomalies" class="btn btn-sm btn-primary">
+                            <i class="fas fa-list me-1"></i> Подробнее
+                        </a>
                     </div>
                     <div class="card-body overflow-auto" style="max-height: 400px;">
                         <div id="anomalies-list">
@@ -260,8 +271,13 @@
             <div class="col-md-6 mb-3" id="traffic">
                 <div class="card h-100">
                     <div class="card-header d-flex justify-content-between align-items-center bg-white">
-                        <h5 class="mb-0">Монитор трафика (Live)</h5>
-                        <span class="badge bg-success" id="traffic-pulse">Active</span>
+                        <div class="d-flex align-items-center">
+                            <h5 class="mb-0 me-3">Монитор трафика (Live)</h5>
+                            <span class="badge bg-success" id="traffic-pulse">Active</span>
+                        </div>
+                        <a href="/traffic" class="btn btn-sm btn-outline-primary shadow-sm px-3">
+                            <i class="fas fa-search-plus me-1"></i> Подробнее
+                        </a>
                     </div>
                     <div class="card-body p-0 overflow-auto" style="max-height: 400px;">
                         <table class="table table-sm table-hover mb-0">
@@ -306,7 +322,8 @@
         <div class="modal-dialog modal-xl">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="deviceModalLabel">Детали устройства: <span id="modal-device-id" class="text-primary"></span></h5>
+                    <h5 class="modal-title" id="deviceModalLabel">Детали устройства: <span id="modal-device-id"
+                            class="text-primary"></span></h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
@@ -318,7 +335,8 @@
                         </div>
                         <div class="col-md-3">
                             <h6>Теги устройства:</h6>
-                            <div id="modal-tags-list" class="list-group list-group-flush small overflow-auto" style="max-height: 400px;">
+                            <div id="modal-tags-list" class="list-group list-group-flush small overflow-auto"
+                                style="max-height: 400px;">
                                 <!-- Список тегов -->
                             </div>
                         </div>
@@ -339,6 +357,7 @@
         // Глобальные переменные для графиков
         let severityChart = null;
         let typeChart = null;
+        let serverMode = 'detect';
 
         // Загрузка сводной информации
         async function loadSummary() {
@@ -354,30 +373,32 @@
 
                 // Обновление настроек
                 if (data.settings) {
-                    const mode = data.settings.system_mode;
-                    document.getElementById('setting-mode').value = mode;
+                    serverMode = data.settings.system_mode;
                     document.getElementById('setting-period').value = data.settings.training_period_minutes;
-                    
-                    const badge = document.getElementById('mode-badge');
-                    badge.textContent = mode === 'collect' ? 'СБОР ЭТАЛОНА' : 'МОНИТОРИНГ';
-                    badge.className = `badge ${mode === 'collect' ? 'bg-info' : 'bg-light text-primary'}`;
 
-                    // Обновление прогресса обучения и видимости полей
+                    if (document.activeElement.id !== 'setting-mode') {
+                        document.getElementById('setting-mode').value = serverMode;
+                    }
+
+                    const badge = document.getElementById('mode-badge');
+                    badge.textContent = serverMode === 'collect' ? 'СБОР ЭТАЛОНА' : 'МОНИТОРИНГ';
+                    badge.className = `badge ${serverMode === 'collect' ? 'bg-info' : 'bg-light text-primary'}`;
+
+                    // Обновление прогресса обучения
                     const progressContainer = document.getElementById('training-progress-container');
                     const countdownTimer = document.getElementById('countdown-timer');
-                    const periodContainer = document.getElementById('training-period-container');
-                    
-                    if (mode === 'collect' && data.training_status) {
+
+                    if (serverMode === 'collect' && data.training_status) {
                         progressContainer.style.display = 'flex';
                         countdownTimer.style.display = 'block';
-                        periodContainer.style.display = 'block';
                         document.getElementById('training-progress-bar').style.width = data.training_status.progress_percent + '%';
                         document.getElementById('time-remaining').textContent = data.training_status.remaining_minutes;
                     } else {
                         progressContainer.style.display = 'none';
                         countdownTimer.style.display = 'none';
-                        periodContainer.style.display = 'none'; // Скрываем в мониторинге
                     }
+
+                    updateActionUI();
                 }
                 document.getElementById('last-update').textContent =
                     now.getHours().toString().padStart(2, '0') + ':' +
@@ -548,23 +569,63 @@
             container.innerHTML = html;
         }
 
-        // Обновление настроек через API
-        async function updateSettings() {
-            const mode = document.getElementById('setting-mode').value;
+        function updateActionUI() {
+            const dropdownMode = document.getElementById('setting-mode').value;
+            const btn = document.getElementById('btn-action');
+            const periodContainer = document.getElementById('training-period-container');
+
+            if (dropdownMode === 'collect' || serverMode === 'collect') {
+                periodContainer.style.display = 'block';
+            } else {
+                periodContainer.style.display = 'none';
+            }
+
+            if (serverMode === 'collect') {
+                if (dropdownMode === 'collect') {
+                    btn.className = 'btn btn-sm btn-danger';
+                    btn.innerHTML = '<i class="fas fa-stop-circle me-1"></i>Остановить сбор';
+                } else {
+                    btn.className = 'btn btn-sm btn-warning text-dark';
+                    btn.innerHTML = '<i class="fas fa-exchange-alt me-1"></i>Перейти в Мониторинг';
+                }
+            } else {
+                if (dropdownMode === 'collect') {
+                    btn.className = 'btn btn-sm btn-success';
+                    btn.innerHTML = '<i class="fas fa-play-circle me-1"></i>Запустить сбор';
+                } else {
+                    btn.className = 'btn btn-sm btn-light text-dark';
+                    btn.innerHTML = '<i class="fas fa-save me-1"></i>Сохранить';
+                }
+            }
+        }
+
+        async function handleAction() {
+            const dropdownMode = document.getElementById('setting-mode').value;
+
+            if (serverMode === 'collect' && dropdownMode === 'collect') {
+                // Если мы уже собираем и выбрали собирать, значит нажата кнопка "Остановить"
+                await postSettings('detect');
+            } else {
+                // Иначе запускаем режим, который выбран в dropdown
+                await postSettings(dropdownMode);
+            }
+        }
+
+        async function postSettings(modeToSet) {
             const period = document.getElementById('setting-period').value;
-            
+
             try {
                 const response = await fetch('/api/settings', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        system_mode: mode,
+                        system_mode: modeToSet,
                         training_period_minutes: parseInt(period)
                     })
                 });
-                
+
                 if (response.ok) {
-                    loadSummary(); // Перезагрузить для обновления индикаторов
+                    loadSummary();
                 }
             } catch (err) {
                 console.error("Failed to update settings:", err);
@@ -605,10 +666,10 @@
         function showDeviceDetails(deviceId) {
             currentModalDeviceId = deviceId;
             document.getElementById('modal-device-id').innerText = deviceId;
-            
+
             const modal = new bootstrap.Modal(document.getElementById('deviceModal'));
             modal.show();
-            
+
             loadDeviceData(deviceId);
         }
 
@@ -625,10 +686,10 @@
                     fetch(`/api/traffic/${deviceId}?limit=100`),
                     fetch(`/api/tags/${deviceId}`)
                 ]);
-                
+
                 const traffic = await trafficRes.json();
                 const tags = await tagsRes.json();
-                
+
                 updateDeviceTagsList(tags);
                 updateDeviceChart(traffic);
             } catch (error) {
@@ -642,7 +703,7 @@
                 container.innerHTML = '<div class="list-group-item text-muted">Теги не найдены</div>';
                 return;
             }
-            
+
             let html = '';
             tags.forEach(tag => {
                 const avg = tag.value_avg ? tag.value_avg.toFixed(2) : '-';
@@ -664,7 +725,7 @@
 
         function updateDeviceChart(traffic) {
             const ctx = document.getElementById('deviceSignalChart').getContext('2d');
-            
+
             if (!traffic || traffic.length === 0) {
                 if (deviceChart) deviceChart.destroy();
                 ctx.font = '14px Arial';
@@ -677,7 +738,7 @@
             const dataSets = {};
             traffic.forEach(msg => {
                 if (msg.value === null) return;
-                
+
                 if (!dataSets[msg.tag_name]) {
                     dataSets[msg.tag_name] = [];
                 }
@@ -689,7 +750,7 @@
 
             const chartDataSets = Object.keys(dataSets).map((tagName, index) => {
                 const colors = [
-                    '#0d6efd', '#198754', '#dc3545', '#ffc107', '#0dcaf0', 
+                    '#0d6efd', '#198754', '#dc3545', '#ffc107', '#0dcaf0',
                     '#6610f2', '#fd7e14', '#20c997', '#e83e8c', '#6f42c1'
                 ];
                 return {

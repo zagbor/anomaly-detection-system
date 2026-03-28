@@ -158,6 +158,15 @@ class AnomalyDetectionSystem:
         self.detector = AnomalyDetector(contamination=contamination, model_path=model_path)
         self.db = DatabaseManager(db_path)
         
+        # Попытка загрузить существующую модель
+        if os.path.exists(model_path):
+            if self.detector.load_model():
+                logger.info(f"Существующая модель ИИ успешно загружена из {model_path}")
+            else:
+                logger.warning("Не удалось загрузить модель, потребуется новое обучение.")
+        else:
+            logger.info("Файл модели не найден, требуется режим 'Сбор эталона'.")
+        
         # Статистика
         self.anomalies_detected = 0
         self.messages_processed = 0
@@ -336,8 +345,8 @@ class AnomalyDetectionSystem:
                 # Регистрация тега (делаем для всех типов сообщений, включая BIRTH)
                 self.db.register_tag(device_id, tag_name, value)
 
-                # Обработка в экстракторе и аномалии только для DDATA (данные)
-                if message_type != "DDATA":
+                # Обработка в экстракторе и аномалии для всех сообщений с данными (DDATA, NDATA, BIRTH)
+                if message_type not in ["DDATA", "NDATA", "DBIRTH", "NBIRTH"]:
                     continue
 
                 # Добавление сообщения в экстрактор
@@ -349,10 +358,15 @@ class AnomalyDetectionSystem:
                     message_type=message_type
                 )
                 
-            # Проверка на аномалию каждые 10 сообщений (только для DDATA)
-            if self.messages_processed % 10 == 0 and device_id and message_type == "DDATA":
+            # Проверка на аномалию каждые 10 сообщений
+            if self.messages_processed % 10 == 0 and device_id and message_type in ["DDATA", "NDATA", "DBIRTH", "NBIRTH"]:
                 # 1. Проверяем режим системы
                 if self.system_mode == 'collect':
+                    if not hasattr(self, 'training_data'):
+                        self.training_data = []
+                    features = self.extractor.extract_feature_vector(device_id)
+                    if features is not None:
+                        self.training_data.append(features)
                     return
 
                 # 2. Проверяем достаточно ли данных для этого устройства
@@ -401,13 +415,14 @@ class AnomalyDetectionSystem:
             if label == -1:
                 self.anomalies_detected += 1
                 
-                # Определение типа и严重程度 аномалии
+                # Определение типа и серьезности аномалии
                 probability = self.detector.get_anomaly_probability(score)
                 
-                if probability > 0.8:
+                # Скорректированные пороги (sklearn IsolationForest редко превышает prob=0.7 для малых выборок)
+                if probability > 0.6:
                     severity = "critical"
                     anomaly_type = "severe_outlier"
-                elif probability > 0.6:
+                elif probability > 0.4:
                     severity = "high"
                     anomaly_type = "moderate_outlier"
                 else:
@@ -474,7 +489,10 @@ class AnomalyDetectionSystem:
                 if self.system_mode == 'collect':
                     elapsed = (datetime.now() - self.collection_start_time).total_seconds() / 60
                     if elapsed >= self.training_period_minutes:
-                        logger.info(f"Период обучения ({self.training_period_minutes}м) завершен. Автоматический переход в MONITORING.")
+                        logger.info(f"Период обучения ({self.training_period_minutes}м) завершен. Обучение модели и переход в MONITORING.")
+                        self._train_model()
+                        if self.detector.is_trained:
+                            self.detector.save_model()
                         self.system_mode = 'detect'
                         self.db.set_setting('system_mode', 'detect')
                 
@@ -536,13 +554,30 @@ class AnomalyDetectionSystem:
         """Обучить модель на собранных данных"""
         logger.info("Подготовка данных для обучения...")
         
-        # Сбор признаков из всех устройств
-        all_features = []
+        # Сбор признаков
+        all_features = getattr(self, 'training_data', [])
         
-        for device_id in list(self.extractor.message_buffers.keys()):
-            features = self.extractor.extract_feature_vector(device_id)
-            if features is not None:
-                all_features.append(features)
+        if not all_features:
+            for device_id in list(self.extractor.message_buffers.keys()):
+                features = self.extractor.extract_feature_vector(device_id)
+                if features is not None:
+                    all_features.append(features)
+        
+        if not all_features:
+            logger.warning("Нет данных для обучения модели")
+            return
+        
+        import numpy as np
+        
+        # Раздуваем выборку, чтобы Isolation Forest нормально обучился
+        if len(all_features) < 50:
+            logger.info(f"Слишком мало векторов ({len(all_features)}). Генерация дополнительных нормальных сэмплов...")
+            base_features = list(all_features)
+            for f in base_features:
+                for _ in range(100):
+                    # добавляем 1% нормального шума
+                    noise = np.random.randn(len(f)) * (np.abs(f) * 0.01 + 0.01)
+                    all_features.append(f + noise)
         
         if not all_features:
             logger.warning("Нет данных для обучения модели")
@@ -627,6 +662,9 @@ def main():
             import time
             while True:
                 time.sleep(10)
+                
+                # Периодическая проверка настроек независимо от трафика
+                system._load_settings()
                 
                 # Вывод статистики каждые 30 секунд
                 stats = system.get_statistics()

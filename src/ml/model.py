@@ -156,13 +156,12 @@ class AnomalyDetector:
         Returns:
             Вероятность аномалии (0.0 - 1.0)
         """
-        # Isolation Forest возвращает отрицательные значения для аномалий
-        # Преобразуем в вероятность от 0 до 1
+        # Isolation Forest в sklearn выдает score от 0 до ~ -0.3 для аномалий, 
+        # зависящий от contamination_offset. Для растягивания до [0, 1] 
+        # используем более агрессивный множитель.
         if score < 0:
-            # Чем более отрицательный score, тем выше вероятность
-            return min(1.0, abs(score) * 2)
+            return min(1.0, abs(score) * 5.0)
         else:
-            # Положительный score = норма
             return max(0.0, 1.0 - score)
     
     def save_model(self, path: Optional[str] = None) -> bool:

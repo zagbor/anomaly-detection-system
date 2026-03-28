@@ -137,8 +137,8 @@ def inject_spike():
     data = request.json
     
     # Поддержка разных форматов данных
-    amplitude = float(data.get('amplitude', 50.0))
-    spike_value = float(data.get('value', state["base_value"] + amplitude))
+    # Напрямую используем введенное значение как абсолютное (а не относительное)
+    spike_value = float(data.get('value', data.get('amplitude', 50.0)))
     
     device_id = state['device_id']
     tag_name = state['tag_name']
