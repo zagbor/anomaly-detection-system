@@ -186,7 +186,7 @@
                                         <label class="col-form-label">Режим работы:</label>
                                     </div>
                                     <div class="col">
-                                        <select id="setting-mode" class="form-select" onchange="updateActionUI()">
+                                        <select id="setting-mode" class="form-select" onchange="markFormDirty(); updateActionUI()">
                                             <option value="collect">Обучение (Сбор эталона)</option>
                                             <option value="detect">Мониторинг (Активная детекция)</option>
                                         </select>
@@ -200,7 +200,7 @@
                                     </div>
                                     <div class="col">
                                         <input type="number" id="setting-period" class="form-control" value="60" min="1"
-                                            oninput="updateActionUI()">
+                                            oninput="markFormDirty(); updateActionUI()">
                                     </div>
                                 </div>
                             </div>
@@ -358,6 +358,11 @@
         let severityChart = null;
         let typeChart = null;
         let serverMode = 'detect';
+        let isSettingsDirty = false;
+
+        function markFormDirty() {
+            isSettingsDirty = true;
+        }
 
         // Загрузка сводной информации
         async function loadSummary() {
@@ -374,10 +379,15 @@
                 // Обновление настроек
                 if (data.settings) {
                     serverMode = data.settings.system_mode;
-                    document.getElementById('setting-period').value = data.settings.training_period_minutes;
+                    
+                    if (!isSettingsDirty) {
+                        if (document.activeElement.id !== 'setting-period') {
+                            document.getElementById('setting-period').value = data.settings.training_period_minutes;
+                        }
 
-                    if (document.activeElement.id !== 'setting-mode') {
-                        document.getElementById('setting-mode').value = serverMode;
+                        if (document.activeElement.id !== 'setting-mode') {
+                            document.getElementById('setting-mode').value = serverMode;
+                        }
                     }
 
                     const badge = document.getElementById('mode-badge');
@@ -625,6 +635,7 @@
                 });
 
                 if (response.ok) {
+                    isSettingsDirty = false;
                     loadSummary();
                 }
             } catch (err) {
